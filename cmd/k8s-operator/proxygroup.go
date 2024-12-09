@@ -211,6 +211,17 @@ func (r *ProxyGroupReconciler) maybeProvision(ctx context.Context, pg *tsapi.Pro
 	if err != nil {
 		return fmt.Errorf("error provisioning config Secrets: %w", err)
 	}
+	headless := pgHeadless(pg, r.tsNamespace)
+	if _, err := createOrUpdate(ctx, r.Client, r.tsNamespace, headless, func(s *corev1.Service) {
+		s.ObjectMeta.Labels = headless.ObjectMeta.Labels
+		s.ObjectMeta.OwnerReferences = headless.ObjectMeta.OwnerReferences
+		s.Spec.Selector = headless.Spec.Selector
+		s.Spec.ClusterIP = headless.Spec.ClusterIP
+		s.Spec.IPFamilyPolicy = headless.Spec.IPFamilyPolicy
+	}); err != nil {
+		return fmt.Errorf("error provisioning headless Service: %w", err)
+	}
+
 	// State secrets are precreated so we can use the ProxyGroup CR as their owner ref.
 	stateSecrets := pgStateSecrets(pg, r.tsNamespace)
 	for _, sec := range stateSecrets {

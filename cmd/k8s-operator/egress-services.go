@@ -718,6 +718,15 @@ func tailnetSvcName(extNSvc *corev1.Service) string {
 	return fmt.Sprintf("%s-%s", extNSvc.Namespace, extNSvc.Name)
 }
 
+// TODO: change to key by UID- this is not good enough (namespaces with a dash in them)
+func extNsNameFromClusterSvcName(clusterSvcName string) (string, string, error) {
+	ns, name, ok := strings.Cut(clusterSvcName, "-")
+	if !ok {
+		return "", "", fmt.Errorf("cannot determine ExternalService namespace/name from ClusterIPService name %s", clusterSvcName)
+	}
+	return ns, name, nil
+}
+
 // epsPortsFromSvc takes the ClusterIP Service created for an egress service and
 // returns its Port array in a form that can be used for an EndpointSlice.
 func epsPortsFromSvc(svc *corev1.Service) (ep []discoveryv1.EndpointPort) {

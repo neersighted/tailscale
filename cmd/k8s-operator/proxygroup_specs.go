@@ -45,6 +45,7 @@ func pgStatefulSet(pg *tsapi.ProxyGroup, namespace, image, tsFirewallMode, cfgHa
 	ss.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: pgLabels(pg.Name, nil),
 	}
+	ss.Spec.ServiceName = pg.Name
 
 	// Template config.
 	tmpl := &ss.Spec.Template
@@ -87,6 +88,7 @@ func pgStatefulSet(pg *tsapi.ProxyGroup, namespace, image, tsFirewallMode, cfgHa
 
 		return volumes
 	}()
+	tmpl.Spec.ReadinessGates = []corev1.PodReadinessGate{{ConditionType: "tailscale.com/egress-services"}}
 
 	// Main container config.
 	c := &ss.Spec.Template.Spec.Containers[0]
@@ -142,6 +144,10 @@ func pgStatefulSet(pg *tsapi.ProxyGroup, namespace, image, tsFirewallMode, cfgHa
 				Name:  "TS_INTERNAL_APP",
 				Value: kubetypes.AppProxyGroupEgress,
 			},
+			{
+				Name:  "TS_ENABLE_HEALTH_CHECK",
+				Value: "true",
+			},
 		}
 
 		if tsFirewallMode != "" {
@@ -171,6 +177,23 @@ func pgServiceAccount(pg *tsapi.ProxyGroup, namespace string) *corev1.ServiceAcc
 			Namespace:       namespace,
 			Labels:          pgLabels(pg.Name, nil),
 			OwnerReferences: pgOwnerReference(pg),
+		},
+	}
+}
+
+func pgHeadless(pg *tsapi.ProxyGroup, namespace string) *corev1.Service {
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:            pg.Name,
+			Namespace:       namespace,
+			Labels:          pgLabels(pg.Name, nil),
+			OwnerReferences: pgOwnerReference(pg),
+		},
+		Spec: corev1.ServiceSpec{
+			Selector:       pgLabels(pg.Name, nil),
+			ClusterIP:      "None",
+			Type:           corev1.ServiceTypeClusterIP,
+			IPFamilyPolicy: ptr.To(corev1.IPFamilyPolicyPreferDualStack),
 		},
 	}
 }
